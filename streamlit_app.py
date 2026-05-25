@@ -1,8 +1,11 @@
-import json
-
 import streamlit as st
 
-from content_summarizer.summarizer import build_summary_response
+from backend import (
+    decode_uploaded_file,
+    format_summary_as_json,
+    format_summary_as_text,
+    generate_summary,
+)
 
 
 st.set_page_config(page_title="Content Summarizer", page_icon="📝", layout="centered")
@@ -30,7 +33,7 @@ uploaded_file = st.file_uploader(
 
 uploaded_text = ""
 if uploaded_file is not None:
-    uploaded_text = uploaded_file.getvalue().decode("utf-8", errors="replace")
+    uploaded_text = decode_uploaded_file(uploaded_file.getvalue())
 
 text = st.text_area(
     "Text to summarize",
@@ -46,11 +49,11 @@ with col2:
     style = st.selectbox("Output style", ["paragraph", "bullet points"], index=0)
 
 if st.button("Generate Summary", type="primary", use_container_width=True):
-    if not text.strip():
-        st.warning("Please enter text or upload a file.")
+    try:
+        result = generate_summary(text, length=length, style=style)
+    except ValueError as error:
+        st.warning(str(error))
         st.stop()
-
-    result = build_summary_response(text, length=length, style=style)
 
     st.subheader(result["title"])
 
@@ -80,16 +83,15 @@ if st.button("Generate Summary", type="primary", use_container_width=True):
     st.subheader("Keywords")
     st.write(", ".join(result["keywords"]))
 
-    json_result = json.dumps(result, indent=2)
     st.download_button(
         "Download JSON",
-        data=json_result,
+        data=format_summary_as_json(result),
         file_name="summary.json",
         mime="application/json",
     )
     st.download_button(
         "Download TXT",
-        data=result["summary"],
+        data=format_summary_as_text(result),
         file_name="summary.txt",
         mime="text/plain",
     )
